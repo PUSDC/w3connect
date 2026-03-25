@@ -11,6 +11,7 @@ import os
 import time
 
 import pyotp
+import sys
 import qrcode
 import tornado.ioloop
 import tornado.web
@@ -18,12 +19,14 @@ import eth_account
 import requests
 from web3 import Web3
 
+from .b0x import load_key, get_account
+from .bbs import BBSCreatePostHandler, BBSEditPostHandler
+
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 # Global variables for the service
-account = None
 totp_secret = None
 used_codes = set()
 last_api_call_timestamp = time.time() - 10
@@ -90,30 +93,7 @@ PUSDC_ABI = [
 ]
 
 
-def load_key(args):
-    filename = args.file
-    if not os.path.exists(filename):
-        print(f"Error: {filename} not found.")
-        return None
-
-    print(f"Loading master key from {filename}...")
-    password = getpass.getpass(f"Enter password to decrypt {filename}: ")
-
-    try:
-        with open(filename, "r") as f:
-            key_json = json.load(f)
-
-        # Decrypt the private key
-        private_key_bytes = eth_account.Account.decrypt(key_json, password)
-        account = eth_account.Account.from_key(private_key_bytes)
-        
-        print(f"Success! Private key loaded for address: {account.address}")
-        return account, password
-    except Exception as e:
-        print(f"Error: Failed to decrypt key. Incorrect password? ({e})")
-        return None, None
-
-def gen_key(args):
+def rekey(args):
     print(f"Generating new private key...")
     password = getpass.getpass("Enter password to encrypt the private key: ")
     confirm_password = getpass.getpass("Confirm password: ")
@@ -166,7 +146,7 @@ def decrypt_data(encrypted_dict, password):
     aesgcm = AESGCM(key)
     return aesgcm.decrypt(nonce, ciphertext, None).decode()
 
-def auth_code(args):
+def reauth(args):
     key_filename = "key.json"
     auth_filename = "auth.json"
     
@@ -226,6 +206,7 @@ class AddressHandler(tornado.web.RequestHandler):
 
     def get(self):
         global last_api_call_timestamp
+        account = get_account()
         if time.time() - last_api_call_timestamp < 10:
             self.finish({"error": "Too many requests. Please wait a moment."})
             return
@@ -314,9 +295,9 @@ class BalanceHandler(tornado.web.RequestHandler):
 class SendHandler(tornado.web.RequestHandler):
     def get(self):
         global totp_secret
-        global account
         global used_codes
         global last_api_call_timestamp
+        account = get_account()
         if time.time() - last_api_call_timestamp < 10:
             self.finish({"error": "Too many requests. Please wait a moment."})
             return
@@ -435,9 +416,9 @@ class SendHandler(tornado.web.RequestHandler):
 class Pay2EmailHandler(tornado.web.RequestHandler):
     def get(self):
         global totp_secret
-        global account
         global used_codes
         global last_api_call_timestamp
+        account = get_account()
         if time.time() - last_api_call_timestamp < 10:
             self.finish({"error": "Too many requests. Please wait a moment."})
             return
@@ -634,6 +615,8 @@ app = tornado.web.Application([
     # (r"/verify", VerifyHandler),
     (r"/send", SendHandler),
     (r"/pay2email", Pay2EmailHandler),
+    (r"/bbs/create_post", BBSCreatePostHandler),
+    (r"/bbs/edit_post", BBSEditPostHandler),
 ])
 
 def run_b0x(args):
@@ -662,23 +645,23 @@ def main():
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # load subcommand
-    load_parser = subparsers.add_parser("load", help="Load private key from encrypted file")
-    load_parser.add_argument("--file", type=str, default="key.json", help="Path to the encrypted key file (default: key.json)")
-    load_parser.set_defaults(func=load_key)
+    # load_parser = subparsers.add_parser("load", help="Load private key from encrypted file")
+    # load_parser.add_argument("--file", type=str, default="key.json", help="Path to the encrypted key file (default: key.json)")
+    # load_parser.set_defaults(func=load_key)
 
     # generate subcommand
-    gen_parser = subparsers.add_parser("gen", help="Generate a new private key")
-    gen_parser.set_defaults(func=gen_key)
+    rekey_parser = subparsers.add_parser("rekey", help="Generate a new private key")
+    rekey_parser.set_defaults(func=rekey)
 
     # auth subcommand
-    auth_parser = subparsers.add_parser("auth", help="Generate a authenticator QR code")
-    auth_parser.set_defaults(func=auth_code)
+    reauth_parser = subparsers.add_parser("reauth", help="Generate a authenticator QR code")
+    reauth_parser.set_defaults(func=reauth)
 
     # run subcommand
-    run_parser = subparsers.add_parser("run", help="Run the lockb0x authenticator service")
-    run_parser.add_argument("--port", type=int, default=5333, help="Port to listen on (default: 5333)")
-    run_parser.add_argument("--file", type=str, default="key.json", help="Path to the encrypted key file (default: key.json)")
-    run_parser.set_defaults(func=run_b0x)
+    # run_parser = subparsers.add_parser("run", help="Run the lockb0x authenticator service")
+    # run_parser.add_argument("--port", type=int, default=5333, help="Port to listen on (default: 5333)")
+    # run_parser.add_argument("--file", type=str, default="key.json", help="Path to the encrypted key file (default: key.json)")
+    # run_parser.set_defaults(func=run_b0x)
 
     args = parser.parse_args()
     if hasattr(args, "func"):
