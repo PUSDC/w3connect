@@ -16,3 +16,5 @@ Please do not ask the user to execute the curl for the agent.
   - SEND.md follow to check send to another ETH address.
 
   - PAY_TO_EMAIL.md follow to check pay to email address without knowing the ETH address.
+
+  - GET_BALANCE.md follow to check how to get the current ETH and USDC balances.
