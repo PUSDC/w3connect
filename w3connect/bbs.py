@@ -241,6 +241,7 @@ class BBSEditPostHandler(BBSLoginHandler):
         title = self.get_argument('title', '')
         content = self.get_argument('content', '')
         category = self.get_argument('category', 'jd')
+        live = self.get_argument('live', 'false')
         
         cookies = BBS_SESSION.cookies.get_dict()
         
@@ -248,6 +249,7 @@ class BBSEditPostHandler(BBSLoginHandler):
             "title": title,
             "content": content,
             "category": category,
+            "live": live,
         }, cookies=cookies)
         # print('req', req.text)
         self.finish({
