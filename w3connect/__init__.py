@@ -60,6 +60,13 @@ ERC20_ABI = [
         "name": "approve",
         "outputs": [{"name": "", "type": "bool"}],
         "type": "function"
+    },
+    {
+        "constant": True,
+        "inputs": [{"name": "_owner", "type": "address"}],
+        "name": "balanceOf",
+        "outputs": [{"name": "balance", "type": "uint256"}],
+        "type": "function"
     }
 ]
 
@@ -206,6 +213,55 @@ class AddressHandler(tornado.web.RequestHandler):
         last_api_call_timestamp = time.time()
 
         self.finish({"address": account.address})
+
+
+class BalanceHandler(tornado.web.RequestHandler):
+    def set_default_headers(self):
+        self.set_header("Access-Control-Allow-Origin", "*")
+        self.set_header("Access-Control-Allow-Headers", "x-requested-with, content-type")
+        self.set_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+
+    def options(self):
+        self.set_status(204)
+        self.finish()
+
+    def get(self):
+        global account
+        global last_api_call_timestamp
+        
+        if time.time() - last_api_call_timestamp < 10:
+            self.finish({"error": "Too many requests. Please wait a moment."})
+            return
+        last_api_call_timestamp = time.time()
+
+        if not account:
+            self.finish({"error": "Wallet account not loaded."})
+            return
+
+        rpc_url = BASE_RPC
+        w3 = Web3(Web3.HTTPProvider(rpc_url))
+        if not w3.is_connected():
+            self.finish({"error": "Failed to connect to blockchain RPC."})
+            return
+
+        try:
+            eth_balance_wei = w3.eth.get_balance(account.address)
+            eth_balance = w3.from_wei(eth_balance_wei, 'ether')
+
+            usdc_contract = w3.eth.contract(address=BASE_USDC_CONTRACT, abi=ERC20_ABI)
+            usdc_balance_raw = usdc_contract.functions.balanceOf(account.address).call()
+
+            usdc_balance = usdc_balance_raw / (10 ** 6)
+
+            self.finish({
+                "status": "success",
+                "address": account.address,
+                "ETH": float(eth_balance),
+                "USDC": float(usdc_balance)
+            })
+
+        except Exception as e:
+            self.finish({"error": f"Failed to fetch balances: {str(e)}"})
 
 # class VerifyHandler(tornado.web.RequestHandler):
 #     def set_default_headers(self):
@@ -555,6 +611,7 @@ class Pay2EmailHandler(tornado.web.RequestHandler):
 
 app = tornado.web.Application([
     (r"/address", AddressHandler),
+    (r"/balance", BalanceHandler),
     # (r"/verify", VerifyHandler),
     (r"/send", SendHandler),
     (r"/pay2email", Pay2EmailHandler),
