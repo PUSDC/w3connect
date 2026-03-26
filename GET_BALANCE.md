@@ -6,3 +6,4 @@ Quick one-liner:
 ```bash
 curl [http://127.0.0.1:5333/balance](http://127.0.0.1:5333/balance)
 # Output: {"status": "success", "address": "0x...", "ETH": 1.25, "USDC": 1500.5}
+```

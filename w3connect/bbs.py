@@ -9,8 +9,8 @@ from .b0x import get_account
 
 BASE_RPC_URL = "https://mainnet.base.org"
 
-# BBS_URL = 'https://bbs.w3connect.org'
-BBS_URL = 'http://127.0.0.1:3000'
+BBS_URL = 'https://bbs.w3connect.org'
+# BBS_URL = 'http://127.0.0.1:3000'
 BBS_SESSION = requests.Session()
 
 BBS_STAKING_CONTRACT = '0x6623Af17C813252CDBE29d062817fd27Bd865c35'
