@@ -8,5 +8,4 @@ Quick one-liner:
 curl http://127.0.0.1:5333/address
 # Output: {"address": "0x..."}
 ```
-    
-    
+
