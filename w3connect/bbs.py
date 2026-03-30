@@ -1,4 +1,5 @@
 import time
+import json
 
 import requests
 import tornado.web
@@ -9,8 +10,8 @@ from .b0x import get_account
 
 BASE_RPC_URL = "https://mainnet.base.org"
 
-# BBS_URL = 'https://bbs.w3connect.org'
-BBS_URL = 'http://127.0.0.1:3000'
+BBS_URL = 'https://bbs.w3connect.org'
+# BBS_URL = 'http://127.0.0.1:3000'
 BBS_SESSION = requests.Session()
 
 BBS_STAKING_CONTRACT = '0x6623Af17C813252CDBE29d062817fd27Bd865c35'
@@ -237,21 +238,40 @@ class BBSEditPostHandler(BBSLoginHandler):
     def post(self):
         assert self.login()
 
-        post_id = self.get_argument('post_id', '')
-        title = self.get_argument('title', '')
-        content = self.get_argument('content', '')
-        category = self.get_argument('category', 'jd')
-        live = self.get_argument('live', 'false')
-        
+        if self.request.headers.get("Content-Type", "").startswith("application/json"):
+            data = json.loads(self.request.body)
+            post_id = data.get('post_id', '')
+            title = data.get('title', '')
+            content = data.get('content', '')
+            category = data.get('category', 'jd')
+            live = data.get('live', 'false')
+        else:
+            post_id = self.get_argument('post_id', '')
+            title = self.get_argument('title', '')
+            content = self.get_argument('content', '')
+            category = self.get_argument('category', 'jd')
+            live = self.get_argument('live', 'false')
+
+        # print('live', live)
         cookies = BBS_SESSION.cookies.get_dict()
-        
-        req = requests.post(f'{BBS_URL}/post/{post_id}/edit', data={
-            "title": title,
-            "content": content,
-            "category": category,
-            "live": live,
-        }, cookies=cookies)
-        # print('req', req.text)
+        if title and content and category:
+            req = requests.post(f'{BBS_URL}/post/{post_id}/edit', data={
+                "title": title,
+                "content": content,
+                "category": category,
+                "live": live,
+            }, cookies=cookies)
+        elif live:
+            req = requests.post(f'{BBS_URL}/post/{post_id}/edit', data={
+                "live": live,
+            }, cookies=cookies)
+        else:
+            self.finish({
+                "result": False
+            })
+            return
+
+        print('req', req.text)
         self.finish({
             "result": True
         })
